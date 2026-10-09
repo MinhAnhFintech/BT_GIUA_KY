@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+node_modules/
+dist/
+data/*
+!data/.gitkeep
+reports_out/*
+!reports_out/.gitkeep
+.agents/
+

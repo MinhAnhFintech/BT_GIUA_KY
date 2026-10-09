@@ -1,0 +1,36 @@
+version: scoring-1.0.0
+weights: {FA: 0.45, TA: 0.35, NEWS: 0.20}
+score_range: [0, 100]
+missing_policy: exclude_without_reweighting
+disclaimer: Công cụ hỗ trợ phân tích, không phải khuyến nghị đầu tư.
+score_meaning: Điểm không đại diện cho xác suất tăng giá hoặc tỷ suất lợi nhuận dự kiến.
+ta:
+  ma_windows: [20, 50, 200]
+  rsi_window: 14
+  macd: {fast: 12, slow: 26, signal: 9}
+  volume_windows: [20, 60]
+  atr_window: 14
+  metrics:
+    price_ma200: {weight: 0.25, lower: -0.20, upper: 0.20, direction: higher}
+    ma20_ma50: {weight: 0.20, lower: -0.10, upper: 0.10, direction: higher}
+    rsi14: {weight: 0.15, lower: 30, upper: 60, direction: higher}
+    macd_histogram_pct: {weight: 0.15, lower: -0.02, upper: 0.02, direction: higher}
+    volume20_volume60: {weight: 0.15, lower: 0.5, upper: 1.5, direction: higher}
+    atr_close: {weight: 0.10, lower: 0.01, upper: 0.06, direction: lower}
+news:
+  method: rule_based_v1
+  half_life_days: 14
+  similarity_threshold: 0.90
+  neutral_score: 50
+  sentiment_scale: 50
+  minimum_confidence: 0.50
+  positive_terms: [tăng trưởng, vượt kế hoạch, tăng lợi nhuận, chia cổ tức]
+  negative_terms: [thua lỗ, xử phạt, khởi tố, giảm lợi nhuận]
+  events:
+    earnings: {impact: 1.0, terms: [lợi nhuận, doanh thu, kết quả kinh doanh]}
+    dividend: {impact: 0.6, terms: [cổ tức]}
+    legal: {impact: 1.0, terms: [xử phạt, khởi tố, pháp lý]}
+    leadership: {impact: 0.5, terms: [bổ nhiệm, từ nhiệm]}
+    merger: {impact: 0.8, terms: [sáp nhập, mua lại]}
+    other: {impact: 0.3, terms: []}
+

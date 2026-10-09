@@ -1,0 +1,15 @@
+version: universe-1.0.0
+index: VN30
+timezone: Asia/Ho_Chi_Minh
+min_symbols: 5
+max_symbols: 10
+historical_membership_policy: require_dated_snapshot
+selected:
+  - {symbol: FPT, sector: technology}
+  - {symbol: MWG, sector: retail}
+  - {symbol: HPG, sector: steel}
+  - {symbol: VCB, sector: banking}
+  - {symbol: SSI, sector: securities}
+  - {symbol: VNM, sector: consumer_staples}
+# Đây là ứng viên theo đề, không phải snapshot thành phần VN30.
+

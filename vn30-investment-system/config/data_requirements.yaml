@@ -1,0 +1,23 @@
+version: data-requirements-1.0.0
+min_price_sessions: 250
+min_quarters: 4
+min_news: 1
+news_window_days: 30
+price_stale_calendar_days: 7
+fundamental_stale_days: 180
+quarter_publication_lag_days: 45
+annual_publication_lag_days: 90
+valuation_history_quarters: 12
+min_average_daily_value_vnd: 1000000000
+quality:
+  hose_daily_limit: 0.07
+  price_jump_tolerance: 0.005
+  zero_volume_max_sessions: 3
+  balance_relative_tolerance: 0.01
+  require_verified_adjustment_for_backtest: true
+  require_exchange_calendar: true
+  ratio_unit: ratio
+  monetary_unit: VND
+  inferred_publication_must_be_flagged: true
+  historical_revisions_require_vintage: true
+

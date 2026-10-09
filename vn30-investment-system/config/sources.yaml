@@ -1,0 +1,26 @@
+version: sources-1.0.0
+timeout_seconds: 20
+max_probe_seconds: 60
+request_interval_seconds: 3
+user_agent: VN30Research/0.1 (educational source health check)
+price_unit_multiplier: 1000
+price_unit_requires_verification: true
+provider: vnstock
+provider_source: kbs
+provider_base_url: https://kbbuddywts.kbsec.com.vn
+probe_symbol: FPT
+price_probe_lookback_days: 14
+probes:
+  - {name: vnstock_universe, kind: universe, required: true}
+  - {name: vnstock_prices, kind: prices, required: true}
+  - {name: vnstock_financials, kind: financials, required: true}
+  - {name: vnstock_company, kind: company, required: false}
+  - {name: vnstock_news, kind: news, required: false}
+rss:
+  - name: vnexpress_business
+    url: https://vnexpress.net/rss/kinh-doanh.rss
+    robots_url: https://vnexpress.net/robots.txt
+    required: false
+reference_repo: https://github.com/Tumiqa/vn-annual-report-miner
+reference_docs: https://github.com/thinh-vu/vnstock/blob/main/README.md
+

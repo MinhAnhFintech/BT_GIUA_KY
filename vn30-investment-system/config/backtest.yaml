@@ -1,0 +1,28 @@
+version: backtest-1.0.0
+default_mode: S_ex_news
+modes:
+  S_full: {FA: 0.45, TA: 0.35, NEWS: 0.20}
+  S_ex_news: {FA: 0.5625, TA: 0.4375}
+initial_cash_vnd: 1000000000
+top_n: 3
+rebalance: monthly
+execution: next_session_open
+lot_size: 100
+settlement_sessions: 2
+buy_fee: 0.0015
+sell_fee: 0.0015
+sell_tax: 0.001
+slippage: 0.001
+max_volume_participation: 0.01
+risk_free_annual: 0.0
+annual_sessions: 252
+seed: 20261009
+random_baseline_runs: 100
+minimum_periods_for_inference: 24
+small_universe_warning_below: 10
+benchmarks: [VN30, VNINDEX, equal_weight_buy_hold, random_top_n]
+out_of_sample_fraction: 0.30
+missing_historical_membership: refuse_strict_backtest
+missing_historical_news: S_full_unavailable
+missing_verified_adjustments: refuse_backtest
+
