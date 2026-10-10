@@ -54,6 +54,7 @@ def sdk_probe(kind: str, as_of: date, sources: dict[str, Any]) -> SourceHealth:
                         as_of - timedelta(days=sources["price_probe_lookback_days"])
                     ).isoformat(),
                     end=as_of.isoformat(),
+                    count=sources["price_probe_lookback_days"] + 1,
                     source=provider_source,
                 )
             )

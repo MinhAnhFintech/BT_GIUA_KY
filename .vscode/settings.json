@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\ADMIN\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/vn30-investment-system",
+    "C:/Users/ADMIN/.venv/Lib/site-packages"
+  ]
+}

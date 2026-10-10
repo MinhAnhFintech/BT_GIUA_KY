@@ -3,5 +3,6 @@
 Mã nguồn hệ thống phân tích cổ phiếu VN30 nằm trong
 [vn30-investment-system](vn30-investment-system/README.md).
 
-Hiện đã triển khai nền tảng giai đoạn 1: cấu hình, schema SQLite, công cụ kiểm tra
-nguồn và kiểm thử. Dashboard, API phân tích, PDF và backtest thuộc giai đoạn tiếp theo.
+Đã có dashboard tiếng Việt, API, cache SQLite, phân tích FA/TA/tin tức và PDF.
+Nhấp đúp `vn30-investment-system/CHAY_UNG_DUNG.cmd`, rồi mở http://127.0.0.1:8000.
+Backtest lịch sử đang yêu cầu dữ liệu đã xác minh; chưa có kết quả lợi suất thực.

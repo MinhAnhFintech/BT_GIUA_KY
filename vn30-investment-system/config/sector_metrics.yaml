@@ -1,42 +1,245 @@
-# Các ngưỡng dưới đây là giả định nghiên cứu, chưa được kiểm định dự báo lợi suất.
 version: sector-metrics-1.0.0
 normalization: clipped_linear
 sectors:
   technology:
-    revenue_yoy: {weight: 0.25, lower: -0.10, upper: 0.30, direction: higher, unit: ratio}
-    profit_yoy: {weight: 0.25, lower: -0.10, upper: 0.30, direction: higher, unit: ratio}
-    roe: {weight: 0.20, lower: 0.05, upper: 0.25, direction: higher, unit: ratio}
-    net_margin: {weight: 0.15, lower: 0.02, upper: 0.20, direction: higher, unit: ratio}
-    pe_relative_median: {weight: 0.15, lower: 0.7, upper: 1.5, direction: lower, unit: multiple}
+    revenue_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    roe:
+      weight: 0.2
+      lower: 0.05
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    net_margin:
+      weight: 0.15
+      lower: 0.02
+      upper: 0.2
+      direction: higher
+      unit: ratio
+    pe_relative_median:
+      weight: 0.15
+      lower: 0.7
+      upper: 1.5
+      direction: lower
+      unit: multiple
   retail:
-    revenue_yoy: {weight: 0.25, lower: -0.10, upper: 0.30, direction: higher, unit: ratio}
-    profit_yoy: {weight: 0.20, lower: -0.10, upper: 0.30, direction: higher, unit: ratio}
-    net_margin: {weight: 0.20, lower: 0, upper: 0.08, direction: higher, unit: ratio}
-    inventory_turnover: {weight: 0.15, lower: 2, upper: 8, direction: higher, unit: multiple}
-    cfo_profit: {weight: 0.20, lower: 0, upper: 1.5, direction: higher, unit: multiple}
+    revenue_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.2
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    net_margin:
+      weight: 0.2
+      lower: 0
+      upper: 0.08
+      direction: higher
+      unit: ratio
+    inventory_turnover:
+      weight: 0.15
+      lower: 2
+      upper: 8
+      direction: higher
+      unit: multiple
+    cfo_profit:
+      weight: 0.2
+      lower: 0
+      upper: 1.5
+      direction: higher
+      unit: multiple
   steel:
-    gross_margin: {weight: 0.30, lower: 0, upper: 0.25, direction: higher, unit: ratio}
-    profit_yoy: {weight: 0.20, lower: -0.30, upper: 0.30, direction: higher, unit: ratio}
-    debt_ebitda: {weight: 0.20, lower: 1, upper: 5, direction: lower, unit: multiple}
-    inventory_turnover: {weight: 0.15, lower: 2, upper: 6, direction: higher, unit: multiple}
-    cfo_capex: {weight: 0.15, lower: 0, upper: 2, direction: higher, unit: multiple}
+    gross_margin:
+      weight: 0.3
+      lower: 0
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.2
+      lower: -0.3
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    debt_ebitda:
+      weight: 0.2
+      lower: 1
+      upper: 5
+      direction: lower
+      unit: multiple
+    inventory_turnover:
+      weight: 0.15
+      lower: 2
+      upper: 6
+      direction: higher
+      unit: multiple
+    cfo_capex:
+      weight: 0.15
+      lower: 0
+      upper: 2
+      direction: higher
+      unit: multiple
   banking:
-    roe: {weight: 0.25, lower: 0.05, upper: 0.25, direction: higher, unit: ratio}
-    nim: {weight: 0.20, lower: 0.02, upper: 0.05, direction: higher, unit: ratio}
-    npl: {weight: 0.20, lower: 0.005, upper: 0.04, direction: lower, unit: ratio}
-    npl_coverage: {weight: 0.15, lower: 0.5, upper: 2, direction: higher, unit: multiple}
-    cir: {weight: 0.10, lower: 0.25, upper: 0.60, direction: lower, unit: ratio}
-    casa: {weight: 0.10, lower: 0.05, upper: 0.40, direction: higher, unit: ratio}
+    roe:
+      weight: 0.25
+      lower: 0.05
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    nim:
+      weight: 0.2
+      lower: 0.02
+      upper: 0.05
+      direction: higher
+      unit: ratio
+    npl:
+      weight: 0.2
+      lower: 0.005
+      upper: 0.04
+      direction: lower
+      unit: ratio
+    npl_coverage:
+      weight: 0.15
+      lower: 0.5
+      upper: 2
+      direction: higher
+      unit: multiple
+    cir:
+      weight: 0.1
+      lower: 0.25
+      upper: 0.6
+      direction: lower
+      unit: ratio
+    casa:
+      weight: 0.1
+      lower: 0.05
+      upper: 0.4
+      direction: higher
+      unit: ratio
   securities:
-    brokerage_revenue_yoy: {weight: 0.25, lower: -0.20, upper: 0.30, direction: higher, unit: ratio}
-    roe: {weight: 0.25, lower: 0.03, upper: 0.20, direction: higher, unit: ratio}
-    leverage: {weight: 0.20, lower: 1, upper: 4, direction: lower, unit: multiple}
-    margin_equity: {weight: 0.15, lower: 0.5, upper: 2, direction: lower, unit: multiple}
-    fvtpl_profit_yoy: {weight: 0.15, lower: -0.30, upper: 0.30, direction: higher, unit: ratio}
+    brokerage_revenue_yoy:
+      weight: 0.25
+      lower: -0.2
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    roe:
+      weight: 0.25
+      lower: 0.03
+      upper: 0.2
+      direction: higher
+      unit: ratio
+    leverage:
+      weight: 0.2
+      lower: 1
+      upper: 4
+      direction: lower
+      unit: multiple
+    margin_equity:
+      weight: 0.15
+      lower: 0.5
+      upper: 2
+      direction: lower
+      unit: multiple
+    fvtpl_profit_yoy:
+      weight: 0.15
+      lower: -0.3
+      upper: 0.3
+      direction: higher
+      unit: ratio
   consumer_staples:
-    revenue_yoy: {weight: 0.20, lower: -0.05, upper: 0.15, direction: higher, unit: ratio}
-    profit_yoy: {weight: 0.20, lower: -0.05, upper: 0.20, direction: higher, unit: ratio}
-    roe: {weight: 0.25, lower: 0.05, upper: 0.30, direction: higher, unit: ratio}
-    net_margin: {weight: 0.20, lower: 0.05, upper: 0.25, direction: higher, unit: ratio}
-    pe_relative_median: {weight: 0.15, lower: 0.7, upper: 1.5, direction: lower, unit: multiple}
-
+    revenue_yoy:
+      weight: 0.2
+      lower: -0.05
+      upper: 0.15
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.2
+      lower: -0.05
+      upper: 0.2
+      direction: higher
+      unit: ratio
+    roe:
+      weight: 0.25
+      lower: 0.05
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    net_margin:
+      weight: 0.2
+      lower: 0.05
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    pe_relative_median:
+      weight: 0.15
+      lower: 0.7
+      upper: 1.5
+      direction: lower
+      unit: multiple
+  real_estate:
+    revenue_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    roe:
+      weight: 0.2
+      lower: 0.05
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    debt_ebitda:
+      weight: 0.3
+      lower: 1
+      upper: 5
+      direction: lower
+      unit: multiple
+  general:
+    revenue_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    profit_yoy:
+      weight: 0.25
+      lower: -0.1
+      upper: 0.3
+      direction: higher
+      unit: ratio
+    roe:
+      weight: 0.25
+      lower: 0.05
+      upper: 0.25
+      direction: higher
+      unit: ratio
+    net_margin:
+      weight: 0.25
+      lower: 0.02
+      upper: 0.2
+      direction: higher
+      unit: ratio

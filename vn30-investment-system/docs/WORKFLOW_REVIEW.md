@@ -1,52 +1,54 @@
-# Double-check workflow và Definition of Done
+# Kiểm tra workflow và tình trạng hoàn thành
 
-## Giai đoạn 1
+## Kiểm chứng đã chạy
 
-- [x] Đọc README/cấu trúc/pyproject repo tham khảo; ghi giới hạn chưa review module sâu.
-- [x] Xác minh môi trường: Windows 11, Python 3.12.3, venv dùng chung có sẵn.
-- [x] Cập nhật pip, Vnstock/Vnai và công cụ kiểm thử trong môi trường đúng.
-- [x] Không ghi tài liệu/skill của provider xuống project; tắt agent setup.
-- [x] Người dùng chọn nguồn công khai, không gửi API key vào chat.
-- [x] Config version/hash, công thức chuẩn 45/35/20, missing không đổi trọng số.
-- [x] Bộ chỉ tiêu 6 ngành và giả định backtest riêng được cấu hình.
-- [x] Schema có publication/availability/revision, raw/adjusted tách biệt, nguồn/hash.
-- [x] Source checker kiểm tra phản hồi thật, schema, robots, timeout, output UTF-8.
-- [x] Các source probe đã chạy tại máy; report JSON có timestamp/hash/version.
-- [x] Test nền tảng/schema/health và lint chạy đạt.
-- [x] README có hướng dẫn cho người không biết code, script double-click trên Windows.
-- [x] Có METHODOLOGY, ARCHITECTURE, giới hạn nghiên cứu và checklist còn thiếu.
+- Windows 11, Python 3.12.3 trong `%USERPROFILE%\.venv`, Node.js 22.
+- Vnstock 4.0.9; Vnai 2.6.2. Xác thực Vnstock trước đó trả gói Community/Free.
+- Cache giá thật hiện có 498 phiên cho MWG, HPG, VCB, SSI, VNM và 598 phiên FPT,
+  từ provider KBS, kèm provenance từng bản ghi. Đây là dữ liệu đã nạp trước khi VCI
+  được chọn làm nguồn mặc định.
+- Provider VCI được kiểm tra sau lần đổi cấu hình: 15 phiên giá FPT trong khoảng
+  14 ngày, báo cáo tài chính và tin FPT. Đơn vị/giờ công bố vẫn chưa xác minh.
+- Workflow cục bộ chạy trên SQLite/cache thật: phân tích 6 mã, PDF tổng hợp, PDF
+  FPT, tải cả hai PDF và phục vụ giao diện đã build.
+- Backtest trên cache thật trả `UNAVAILABLE`, không lợi suất/đường vốn giả, và đưa
+  15 điều kiện/dữ liệu còn thiếu.
+- `python -m pytest -q`: 68 passed. Ruff lint/format: passed. React/TypeScript
+  production build: passed.
 
-## Double-check các điểm dễ làm sai
+## Trạng thái từng phần
 
-| Rủi ro | Cách xử lý hiện tại | Việc cần hoàn tất |
+| Phần | Kết quả hiện tại | Giới hạn cần biết |
 |---|---|---|
-| py/PATH không nhận Python | Dùng `.venv` tồn tại, kích hoạt trước mọi lệnh | Không cần sửa PATH toàn máy |
-| Thiếu = 0 / dồn trọng số | Config và constraint DB chặn | Test engine scoring/ranking ở giai đoạn 3 |
-| Dùng report period như publication | Schema có 3 ngày riêng và revision | Adapter/query PIT và backtest tests |
-| Backfill số sửa vào quá khứ | Giữ revision, vintage_verified | Bằng chứng vintage thật/nguồn bổ sung |
-| Danh sách VN30 hiện tại thành lịch sử | Source warning current-only | Snapshot có hiệu lực/announced_at từ nguồn gốc |
-| Giá ngày hôm nay chưa đóng phiên | Source health không xác minh phiên hoàn tất | Lịch sàn + thời điểm đóng + bỏ phiên dở |
-| adjusted close dùng khớp lệnh | Schema raw và adjusted riêng | Corporate actions/trade simulation |
-| RSS hiện tại là kho tin lịch sử | Gắn warning, S_full chưa khả dụng | Kho tin timestamp đáng tin |
-| API ký hiệu khác README SDK | Đối chiếu mã SDK cài thực và gọi live thành công | Pin/version adapters khi hoàn thiện |
-| Schema tài chính không có cột unit mặc định | Ghi unit chưa xác minh, không tự đoán | Chuẩn hóa dựa bằng chứng provider |
-| Tin rule-based bị coi là xác suất | Ghi phương pháp và giới hạn trong methodology | Test dedup, confidence/event mapping |
-| Health OK bị hiểu là đủ backtest | Luôn `backtest_ready=false` ở stage 1 | Kiểm tra prerequisites ở stage 7 |
+| Provider VCI | Giá/BCTC/tin lấy bằng SDK đã cài; lưu provenance/cache | Không công bố đơn vị BCTC hay vintage ngày công bố chưa xác minh |
+| Giá lịch sử | Tải theo khoảng ngày, giới hạn `count` tăng theo số ngày | Chưa xác minh corporate actions/giá điều chỉnh; đơn vị giá còn cờ nguồn |
+| Dữ liệu cơ bản | Nạp báo cáo quý và năm; lỗi từng báo cáo độc lập | Ngày công bố hiện suy luận theo thời điểm tải; chưa đủ vintage PIT |
+| Tin | Lưu tiêu đề, URL, thời gian, khử trùng, chấm rule-based | Nguồn không tạo kho tin lịch sử có timestamp đã kiểm định |
+| VN30 | Lấy thành viên hiện tại và cache ngày quan sát | Không coi danh sách hiện nay là thành phần lịch sử |
+| Chất lượng | Giá OHLC, bản ghi trùng, thiếu/không hữu hạn, volume và bước nhảy được kiểm tra/audit | Bước nhảy chỉ là cảnh báo rà soát; chưa có lịch HOSE/corporate actions chính thức |
+| Phân tích | FA/TA/tin, trạng thái thiếu, giải thích và provenance | Điểm ngành chỉ đủ với dữ liệu phù hợp; thiếu một thành phần thì S là NULL |
+| PDF | Font tiếng Việt, xếp hạng phụ/chính, chi tiết, đồ thị giá/MA và đóng góp điểm | Chưa có nến/benchmark và định giá lịch sử đầy đủ |
+| UI/API | Sáu trang React, dashboard production được phục vụ tại cổng 8000 | Job nền phụ thuộc một tiến trình local; không chạy nhiều worker SQLite |
+| Simulator | Lệnh khớp phiên kế tiếp, lô 100, phí/thuế, thanh khoản và T+2; có test tổng hợp | Không được dùng kết quả fixtures như lợi nhuận thị trường |
+| Backtest nghiên cứu | API rà prerequisites PIT/survivorship và phản hồi an toàn | Chưa có tín hiệu lịch sử đã kiểm toán, benchmark, IC, walk-forward hay random baseline |
 
-## Definition of Done cho toàn hệ thống — chưa đạt
+## Các bước chạy và kiểm chứng
 
-- [ ] Adapter giá/FA/news cho 6 mã, incremental và migration Alembic.
-- [ ] Universe tại ngày phân tích, loại mã không hợp lệ và gợi ý cùng ngành.
-- [ ] Quality checks đầy đủ: phiên thiếu, biên độ, KL=0, cân BCTC, đơn vị, sự kiện.
-- [ ] TA/FA/news/ranking thực, giải thích từng raw value → score → weight → contribution.
-- [ ] FastAPI, job nền, endpoint đầy đủ, integration tests.
-- [ ] PDF tiếng Việt, nguồn/thời điểm/đơn vị/footer, đối soát số DB và PDF.
-- [ ] UI đủ 6 trang và mọi thao tác chạy từ giao diện, trạng thái lỗi/trống rõ.
-- [ ] Backtest chống look-ahead/revision/survivorship và tests phí/thuế/T+2/lô.
-- [ ] Benchmark/IC/tertiles/random baseline/walk-forward/seed/hashes và warnings mẫu nhỏ.
-- [ ] Lần refresh thứ hai chỉ tải mới, timing và so sánh thực.
-- [ ] Docker hoặc hai lệnh khởi động backend/frontend đã được test.
-- [ ] Test end-to-end chọn → refresh → analysis → ranking → PDF → backtest.
+1. Mở `CHAY_UNG_DUNG.cmd`, rồi mở `http://127.0.0.1:8000`.
+2. Chọn 5–10 mã VN30, lưu, chạy **Cập nhật dữ liệu** và đợi job hoàn thành.
+3. Chạy **Phân tích**, xem hạng chính/phụ và các cờ chất lượng.
+4. Xuất PDF tổng hợp/PDF mã; đối chiếu ngày, config, nguồn và trạng thái dữ liệu.
+5. Chạy backtest. Chỉ có lợi suất khi prerequisites đã xác minh; hiện dự kiến là
+   `UNAVAILABLE` cho dữ liệu hiện có.
+6. Mở `/docs` để kiểm tra OpenAPI. Lệnh `python -m scripts.smoke_local` chạy lại
+   workflow trên DB/cache thật và sẽ lưu thêm PDF.
 
-Không đánh dấu hoàn thành dựa trên file/folder placeholder. Giữ các mục còn thiếu
-để giai đoạn 2–8 được nghiệm thu đúng phạm vi, sau khi kiểm thử từng giai đoạn.
+Khi phân tích trong ngày hiện tại trước 16:00 giờ Việt Nam, giá ngày đang chạy bị
+bỏ qua; mốc 16:00 là khoảng đệm cấu hình, không thay cho lịch đóng phiên HOSE đã
+kiểm chứng. Dữ liệu lịch sử chỉ được đưa vào PIT khi `available_at` cho phép; việc
+tải lại hôm nay không chứng minh bản ghi đã được biết trong quá khứ.
+
+Chưa hoàn tất toàn bộ đề: Alembic migration, lịch sử cổ tức/chia tách đã xác minh,
+snapshot thành phần VN30 có ngày hiệu lực, benchmark/IC/walk-forward, và phiên bản
+backtest tạo tín hiệu point-in-time. Không dùng hệ thống làm khuyến nghị mua bán.
+

@@ -223,6 +223,8 @@ def score_news(
 
     # Convert DataFrame to list of dicts
     news_items = news_df.to_dict("records")
+    for item in news_items:
+        item["title"] = item.get("title", item.get("news_title", item.get("newsTitle", "")))
 
     # Deduplicate
     original_count = len(news_items)
@@ -241,11 +243,14 @@ def score_news(
 
     # Score each news item
     item_scores: list[dict[str, Any]] = []
+    eligible_count = 0
     total_weight = 0.0
     weighted_sum = 0.0
 
     for item in news_items:
         title = str(item.get("title", item.get("news_title", item.get("newsTitle", ""))))
+        if not title.strip() or title in {"nan", "None"}:
+            continue
         url = str(item.get("url", item.get("news_url", "")))
 
         # Parse published date
@@ -261,7 +266,7 @@ def score_news(
                 except (ValueError, TypeError):
                     continue
 
-        if pub_date is None:
+        if pub_date is None or pd.isna(pub_date):
             continue
 
         if pub_date.tzinfo is None:
@@ -282,7 +287,9 @@ def score_news(
 
         # Combined item score
         item_weight = freshness * impact
-        if confidence >= min_confidence:
+        eligible = confidence >= min_confidence and item_weight > 0
+        if eligible:
+            eligible_count += 1
             weighted_sum += sentiment_score * item_weight
             total_weight += item_weight
 
@@ -297,6 +304,7 @@ def score_news(
             "impact": impact,
             "freshness": round(freshness, 4),
             "weight": round(item_weight, 4),
+            "eligible": eligible,
         }
         item_scores.append(item_detail)
 
@@ -305,7 +313,11 @@ def score_news(
             score=None,
             status="INSUFFICIENT_DATA",
             reasons=["No news items met confidence threshold"],
-            breakdown={"items_analyzed": len(item_scores)},
+            breakdown={
+                "items_analyzed": len(item_scores),
+                "items_eligible": eligible_count,
+                "items": item_scores[:20],
+            },
         )
 
     final_score = weighted_sum / total_weight
@@ -314,13 +326,14 @@ def score_news(
     breakdown = {
         "items_total": original_count,
         "items_after_dedup": len(news_items),
-        "items_scored": len(item_scores),
+        "items_scored": eligible_count,
+        "items_eligible": eligible_count,
         "total_weight": round(total_weight, 4),
         "final_score": round(final_score, 4),
         "items": item_scores[:20],  # Limit items in breakdown
     }
 
-    status = "COMPLETE" if len(item_scores) >= 1 else "PARTIAL_ANALYSIS"
+    status = "COMPLETE" if eligible_count >= 1 else "PARTIAL_ANALYSIS"
 
     return NewsResult(
         score=round(final_score, 4),

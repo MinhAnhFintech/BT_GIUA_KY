@@ -31,7 +31,10 @@ def test_market_equity_is_called_before_ohlcv() -> None:
     assert result.status == "OK"
     market.equity.assert_called_once_with("FPT")
     market.equity.return_value.ohlcv.assert_called_once_with(
-        start="2026-09-25", end="2026-10-09", source="kbs"
+        start="2026-09-25",
+        end="2026-10-09",
+        count=15,
+        source=load_settings().sources["provider_source"],
     )
     assert "COMPLETED_SESSION_NOT_VERIFIED" in result.warnings
 

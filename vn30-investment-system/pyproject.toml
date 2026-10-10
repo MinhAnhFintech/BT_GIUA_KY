@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vn30-investment-system"
 version = "0.1.0"
-description = "Auditable VN30 investment analysis: stage 1 foundation"
+description = "VN30 research dashboard, cached analysis, PDF and historical-data audit"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.0,<3", "PyYAML>=6.0,<7", "SQLAlchemy>=2.0,<3",

@@ -73,9 +73,29 @@ def test_unknown_sector_rejected() -> None:
         Settings.model_validate(document)
 
 
-@pytest.mark.parametrize("field,value", [("buy_fee", -0.1), ("sell_tax", 1.5), ("top_n", 20)])
+@pytest.mark.parametrize("field,value", [("buy_fee", -0.1), ("sell_tax", 1.5), ("top_n", 31)])
 def test_invalid_backtest_parameters_rejected(field: str, value: float) -> None:
     document = deepcopy(load_settings().model_dump())
     document["backtest"][field] = value
+    with pytest.raises(ValidationError):
+        Settings.model_validate(document)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"sell_fee": 0.7, "sell_tax": 0.4},
+        {"annual_sessions": 0},
+        {"risk_free_annual": -1},
+        {"max_volume_participation": 0},
+        {"initial_cash_vnd": float("inf")},
+        {"rebalance": "daily"},
+        {"execution": "same_day_close"},
+        {"out_of_sample_fraction": 1},
+    ],
+)
+def test_invalid_execution_assumptions_rejected(change: dict) -> None:
+    document = deepcopy(load_settings().model_dump())
+    document["backtest"].update(change)
     with pytest.raises(ValidationError):
         Settings.model_validate(document)

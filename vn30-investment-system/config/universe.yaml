@@ -1,15 +1,67 @@
-version: universe-1.0.0
+version: universe-2.0.0
 index: VN30
 timezone: Asia/Ho_Chi_Minh
 min_symbols: 5
-max_symbols: 10
+max_symbols: 30
 historical_membership_policy: require_dated_snapshot
 selected:
-  - {symbol: FPT, sector: technology}
-  - {symbol: MWG, sector: retail}
-  - {symbol: HPG, sector: steel}
-  - {symbol: VCB, sector: banking}
-  - {symbol: SSI, sector: securities}
-  - {symbol: VNM, sector: consumer_staples}
-# Đây là ứng viên theo đề, không phải snapshot thành phần VN30.
-
+- symbol: ACB
+  sector: banking
+- symbol: BID
+  sector: banking
+- symbol: BSR
+  sector: general
+- symbol: CTG
+  sector: banking
+- symbol: FPT
+  sector: technology
+- symbol: GAS
+  sector: general
+- symbol: GVR
+  sector: general
+- symbol: HDB
+  sector: banking
+- symbol: HPG
+  sector: steel
+- symbol: LPB
+  sector: banking
+- symbol: MBB
+  sector: banking
+- symbol: MCH
+  sector: consumer_staples
+- symbol: MSN
+  sector: consumer_staples
+- symbol: MWG
+  sector: retail
+- symbol: SAB
+  sector: consumer_staples
+- symbol: SHB
+  sector: banking
+- symbol: SSB
+  sector: banking
+- symbol: SSI
+  sector: securities
+- symbol: STB
+  sector: banking
+- symbol: TCB
+  sector: banking
+- symbol: TCX
+  sector: general
+- symbol: VCB
+  sector: banking
+- symbol: VHM
+  sector: real_estate
+- symbol: VIB
+  sector: banking
+- symbol: VIC
+  sector: real_estate
+- symbol: VJC
+  sector: general
+- symbol: VNM
+  sector: consumer_staples
+- symbol: VPB
+  sector: banking
+- symbol: VPL
+  sector: real_estate
+- symbol: VRE
+  sector: real_estate

@@ -1,1 +1,1 @@
-"""Portable PDF report artifacts."""
+"""Reports package."""

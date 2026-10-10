@@ -1,4 +1,4 @@
-version: sources-1.0.0
+version: sources-1.1.0
 timeout_seconds: 20
 max_probe_seconds: 60
 request_interval_seconds: 3
@@ -6,10 +6,12 @@ user_agent: VN30Research/0.1 (educational source health check)
 price_unit_multiplier: 1000
 price_unit_requires_verification: true
 provider: vnstock
-provider_source: kbs
-provider_base_url: https://kbbuddywts.kbsec.com.vn
+provider_source: VCI
+provider_base_url: https://iq.vietcap.com.vn/api/iq-insight-service
 probe_symbol: FPT
 price_probe_lookback_days: 14
+financial_period_limit: 8
+price_complete_after_local: "16:00"
 probes:
   - {name: vnstock_universe, kind: universe, required: true}
   - {name: vnstock_prices, kind: prices, required: true}

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import calendar
 import hashlib
+import math
 from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.app.db.models import FundamentalValue, NewsItem, PriceBar, Stock
+from backend.app.db.models import FundamentalValue, NewsItem, PriceBar, SourceFetch, Stock
 from backend.app.db.session import initialize_database
 
 engine = initialize_database()
@@ -40,11 +41,46 @@ def _timestamp(value):
         return None
 
 
-def get_latest_price_date(symbol):
+def _source_name(source):
+    return source if source.startswith("vnstock/") else "vnstock/" + source.upper()
+
+
+def get_latest_price_date(symbol, source=None):
+    with Session(engine) as session:
+        stmt = select(func.max(PriceBar.as_of_date)).where(PriceBar.symbol == symbol)
+        if source is not None:
+            stmt = stmt.where(PriceBar.source == _source_name(source))
+        return session.scalar(stmt)
+
+
+def latest_financial_fetch(symbol, kind, period, source):
+    """Latest successful check for one statement/period/source, including unchanged data."""
     with Session(engine) as session:
         return session.scalar(
-            select(func.max(PriceBar.as_of_date)).where(PriceBar.symbol == symbol)
+            select(SourceFetch)
+            .where(
+                SourceFetch.symbol == symbol,
+                SourceFetch.kind == f"fundamentals_{period}_{kind}",
+                SourceFetch.source == _source_name(source),
+                SourceFetch.schema_version == "financial-cache-v2",
+            )
+            .order_by(SourceFetch.fetched_at.desc())
+            .limit(1)
         )
+
+
+def save_financial_fetch(symbol, kind, period, batch, latest_period):
+    with Session(engine) as session:
+        session.add(
+            SourceFetch(
+                symbol=symbol,
+                kind=f"fundamentals_{period}_{kind}",
+                schema_version="financial-cache-v2",
+                unit_metadata={"latest_period": latest_period, "records": len(batch.records)},
+                **_audit(batch),
+            )
+        )
+        session.commit()
 
 
 def save_prices(symbol, batch):
@@ -54,8 +90,11 @@ def save_prices(symbol, batch):
             ts = _timestamp(row.get("time", row.get("date")))
             if ts is None:
                 continue
-            values = {k: float(row[k]) for k in ("open", "high", "low", "close", "volume")}
-            if not all(pd.notna(v) for v in values.values()):
+            try:
+                values = {k: float(row[k]) for k in ("open", "high", "low", "close", "volume")}
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not all(math.isfinite(v) for v in values.values()):
                 continue
             if (
                 min(values[k] for k in ("open", "high", "low", "close")) <= 0
@@ -74,6 +113,7 @@ def save_prices(symbol, batch):
                 select(PriceBar).where(
                     PriceBar.symbol == symbol,
                     PriceBar.as_of_date == audit["as_of_date"],
+                    PriceBar.source == audit["source"],
                     PriceBar.payload_sha256 == audit["payload_sha256"],
                 )
             )
@@ -83,7 +123,7 @@ def save_prices(symbol, batch):
                         symbol=symbol,
                         **values,
                         **audit,
-                        price_unit="SOURCE_NATIVE_UNVERIFIED",
+                        price_unit=row.get("price_unit", "SOURCE_NATIVE_UNVERIFIED"),
                         available_at=batch.provenance.fetched_at,
                     )
                 )
@@ -106,7 +146,16 @@ def save_fundamentals(symbol, batch):
                     (str(k), v, end, "quarter" if 1 <= q <= 4 else "year")
                     for k, v in row.items()
                     if k
-                    not in ("yearReport", "year", "lengthReport", "quarter", "symbol", "statement")
+                    not in (
+                        "yearReport",
+                        "year",
+                        "lengthReport",
+                        "quarter",
+                        "symbol",
+                        "statement",
+                        "unit",
+                        "original_unit",
+                    )
                 ]
             elif row.get("item_en") or row.get("item"):
                 label = (
@@ -116,6 +165,9 @@ def save_fundamentals(symbol, batch):
                 )
                 for k, v in row.items():
                     try:
+                        if len(str(k)) == 4 and str(k).isdigit():
+                            normalized.append((str(label), v, date(int(k), 12, 31), "year"))
+                            continue
                         y, q = str(k).split("-Q")
                         month = int(q) * 3
                         normalized.append(
@@ -129,18 +181,25 @@ def save_fundamentals(symbol, batch):
                     except (ValueError, TypeError):
                         continue
             for metric, value, end, period in normalized:
-                try:
-                    value = float(value)
-                except (ValueError, TypeError):
-                    continue
-                if not pd.notna(value):
-                    continue
+                # Persist explicit source NULLs as a new vintage so old SDK-filled zeros
+                # cannot remain current after a corrected refresh.
+                if value is None or pd.isna(value):
+                    value = None
+                else:
+                    try:
+                        value = float(value)
+                    except (ValueError, TypeError):
+                        continue
+                    if not math.isfinite(value):
+                        value = None
                 metric = str(row.get("statement", "ratio")) + ":" + metric
                 existing = session.scalar(
                     select(FundamentalValue).where(
                         FundamentalValue.symbol == symbol,
                         FundamentalValue.metric == metric,
                         FundamentalValue.period_end == end,
+                        FundamentalValue.period_type == period,
+                        FundamentalValue.source == batch.provenance.source,
                         FundamentalValue.revision == batch.provenance.payload_sha256,
                     )
                 )
@@ -152,16 +211,33 @@ def save_fundamentals(symbol, batch):
                             value=value,
                             period_end=end,
                             period_type=period,
-                            unit="SOURCE_NATIVE",
-                            original_unit="SOURCE_NATIVE",
+                            unit=_metric_unit(row, metric),
+                            original_unit=str(
+                                row.get("original_unit") or _metric_unit(row, metric)
+                            ),
                             published_at=batch.provenance.fetched_at,
                             available_at=batch.provenance.fetched_at,
                             publication_inferred=True,
                             revision=batch.provenance.payload_sha256,
+                            missing_reason="SOURCE_VALUE_MISSING" if value is None else None,
                             **_audit(batch),
                         )
                     )
         session.commit()
+
+
+def _metric_unit(row, label):
+    explicit = row.get("unit")
+    if explicit == "SOURCE_NATIVE_UNVERIFIED":
+        return explicit
+    if explicit in {"ratio", "percent", "multiple", "VND", "million_VND", "billion_VND"}:
+        return explicit
+    # A source's explicit printed unit is metadata; magnitude is never a unit signal.
+    if "(%)" in label or label.endswith("%"):
+        return "percent"
+    if "Bn. VND" in label:
+        return "billion_VND"
+    return "SOURCE_NATIVE_UNVERIFIED"
 
 
 def save_news(batch, symbol):
@@ -172,7 +248,10 @@ def save_news(batch, symbol):
             published = _timestamp(
                 row.get(
                     "published_at",
-                    row.get("publishDate", row.get("publish_time", row.get("publishTime"))),
+                    row.get(
+                        "publishDate",
+                        row.get("publish_time", row.get("publishTime", row.get("public_date"))),
+                    ),
                 )
             )
             if not title or published is None:
@@ -183,28 +262,50 @@ def save_news(batch, symbol):
                 if symbol not in existing.symbols:
                     existing.symbols = existing.symbols + [symbol]
             else:
+                existing = NewsItem(
+                    dedup_hash=digest,
+                    title=str(title),
+                    url=str(url),
+                    published_at=published,
+                    available_at=max(published, batch.provenance.fetched_at),
+                    symbols=[symbol],
+                    timestamp_verified=False,
+                    **_audit(batch),
+                )
+                session.add(existing)
+                session.flush()
+            association = session.scalar(
+                select(SourceFetch).where(
+                    SourceFetch.kind == "news_symbol",
+                    SourceFetch.symbol == symbol,
+                    SourceFetch.payload_sha256 == digest,
+                    SourceFetch.source == batch.provenance.source,
+                )
+            )
+            if association is None:
+                audit = _audit(batch).copy()
+                audit["payload_sha256"] = digest
                 session.add(
-                    NewsItem(
-                        dedup_hash=digest,
-                        title=str(title),
-                        url=str(url),
-                        published_at=published,
-                        available_at=max(published, batch.provenance.fetched_at),
-                        symbols=[symbol],
-                        timestamp_verified=False,
-                        **_audit(batch),
+                    SourceFetch(
+                        kind="news_symbol",
+                        symbol=symbol,
+                        schema_version="news-association-v1",
+                        unit_metadata={"news_id": existing.id},
+                        **audit,
                     )
                 )
         session.commit()
 
 
-def get_prices(symbol, start, end, known_at=None):
+def get_prices(symbol, start, end, known_at=None, source=None):
     with Session(engine) as session:
         stmt = select(PriceBar).where(
             PriceBar.symbol == symbol, PriceBar.as_of_date >= start, PriceBar.as_of_date <= end
         )
         if known_at is not None:
             stmt = stmt.where(PriceBar.available_at <= known_at)
+        if source is not None:
+            stmt = stmt.where(PriceBar.source == _source_name(source))
         bars = session.scalars(stmt.order_by(PriceBar.as_of_date, PriceBar.fetched_at)).all()
         rows = [
             dict(
@@ -219,6 +320,10 @@ def get_prices(symbol, start, end, known_at=None):
                 source_url=b.source_url,
                 price_unit=b.price_unit,
                 adjustment_verified=b.adjustment_verified,
+                fetched_at=b.fetched_at,
+                available_at=b.available_at,
+                as_of_date=b.as_of_date,
+                payload_sha256=b.payload_sha256,
             )
             for b in bars
         ]
@@ -229,11 +334,16 @@ def get_prices(symbol, start, end, known_at=None):
         )
 
 
-def get_fundamentals(symbol, known_at=None):
+def get_fundamentals(symbol, known_at=None, source=None):
     with Session(engine) as session:
         stmt = select(FundamentalValue).where(FundamentalValue.symbol == symbol)
         if known_at is not None:
-            stmt = stmt.where(FundamentalValue.available_at <= known_at)
+            stmt = stmt.where(
+                FundamentalValue.available_at <= known_at,
+                FundamentalValue.period_end <= known_at.date(),
+            )
+        if source is not None:
+            stmt = stmt.where(FundamentalValue.source == _source_name(source))
         vals = session.scalars(
             stmt.order_by(FundamentalValue.period_end, FundamentalValue.fetched_at)
         ).all()
@@ -243,22 +353,31 @@ def get_fundamentals(symbol, known_at=None):
                 period_end=v.period_end,
                 period_type=v.period_type,
                 metric=v.metric,
-                value=float(v.value),
+                value=float(v.value) if v.value is not None else None,
                 source=v.source,
                 source_url=v.source_url,
                 available_at=v.available_at,
                 publication_inferred=v.publication_inferred,
+                vintage_verified=v.vintage_verified,
+                published_at=v.published_at,
+                fetched_at=v.fetched_at,
+                as_of_date=v.as_of_date,
+                unit=v.unit,
+                original_unit=v.original_unit,
+                revision=v.revision,
+                payload_sha256=v.payload_sha256,
+                missing_reason=v.missing_reason,
             )
             for v in vals
         ]
         return (
-            pd.DataFrame(rows).drop_duplicates(["period_end", "metric"], keep="last")
+            pd.DataFrame(rows).drop_duplicates(["period_end", "period_type", "metric"], keep="last")
             if rows
             else pd.DataFrame()
         )
 
 
-def get_news(symbols, days, known_at=None):
+def get_news(symbols, days, known_at=None, source=None):
     cutoff = known_at or datetime.now(UTC)
     with Session(engine) as session:
         items = session.scalars(
@@ -268,6 +387,22 @@ def get_news(symbols, days, known_at=None):
                 NewsItem.published_at >= cutoff - timedelta(days=days),
             )
         ).all()
+        associations = session.scalars(
+            select(SourceFetch).where(
+                SourceFetch.kind == "news_symbol",
+                SourceFetch.symbol.in_(symbols),
+                SourceFetch.fetched_at <= cutoff,
+            )
+        ).all()
+        eligible = {}
+        for association in sorted(associations, key=lambda a: a.fetched_at):
+            if source is None or association.source == _source_name(source):
+                eligible[association.unit_metadata.get("news_id")] = association
+        all_associated = set(
+            session.scalars(
+                select(SourceFetch.payload_sha256).where(SourceFetch.kind == "news_symbol")
+            ).all()
+        )
         return pd.DataFrame(
             [
                 dict(
@@ -275,11 +410,24 @@ def get_news(symbols, days, known_at=None):
                     title=n.title,
                     url=n.url,
                     published_at=n.published_at,
-                    source=n.source,
-                    source_url=n.source_url,
+                    source=eligible[n.id].source if n.id in eligible else n.source,
+                    source_url=eligible[n.id].source_url if n.id in eligible else n.source_url,
+                    fetched_at=eligible[n.id].fetched_at if n.id in eligible else n.fetched_at,
+                    available_at=max(n.published_at, eligible[n.id].fetched_at)
+                    if n.id in eligible
+                    else n.available_at,
+                    as_of_date=n.as_of_date,
+                    payload_sha256=n.payload_sha256,
+                    timestamp_verified=n.timestamp_verified,
                 )
                 for n in items
-                if any(s in n.symbols for s in symbols)
+                if n.id in eligible
+                or (
+                    n.dedup_hash not in all_associated
+                    and len(n.symbols) == 1
+                    and n.symbols[0] in symbols
+                    and (source is None or n.source == _source_name(source))
+                )
             ]
         )
 

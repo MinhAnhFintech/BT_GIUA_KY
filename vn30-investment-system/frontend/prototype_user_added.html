@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN30 Investment Analysis System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.min.js"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #1a365d 0%, #2d3748 100%); }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .status-complete { background: #c6f6d5; color: #22543d; }
+        .status-partial { background: #fefcbf; color: #744210; }
+        .status-insufficient { background: #fed7d7; color: #742a2a; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading { animation: pulse 2s infinite; }
+        .tab-active { border-bottom: 3px solid #3182ce; color: #3182ce; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div id="root"></div>
+<script type="text/babel">
+const API = 'http://localhost:8000/api';
+const { useState, useEffect, useCallback } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, CartesianGrid } = Recharts;
+
+// ─── API helpers ─────────────────────────────────────────
+async function api(path, opts = {}) {
+    try {
+        const res = await fetch(API + path, {
+            headers: { 'Content-Type': 'application/json' },
+            ...opts,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    } catch (e) {
+        console.error('API error:', e);
+        throw e;
+    }
+}
+
+// ─── Components ──────────────────────────────────────────
+function Disclaimer() {
+    return (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 text-xs text-amber-800 mb-4">
+            ⚠️ Công cụ hỗ trợ phân tích, không phải khuyến nghị đầu tư. Điểm không đại diện cho xác suất tăng giá hoặc tỷ suất lợi nhuận dự kiến.
+        </div>
+    );
+}
+
+function StatusBadge({ status }) {
+    const cls = status === 'COMPLETE' ? 'status-complete' :
+                status === 'PARTIAL_ANALYSIS' ? 'status-partial' : 'status-insufficient';
+    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
+}
+
+function LoadingSpinner() {
+    return <div className="flex justify-center p-8"><div className="loading text-blue-600 text-lg">⏳ Đang tải...</div></div>;
+}
+
+// ─── Tabs ────────────────────────────────────────────────
+function Tabs({ active, onChange }) {
+    const tabs = [
+        { id: 'ranking', label: '📊 Xếp hạng' },
+        { id: 'detail', label: '🔍 Chi tiết mã' },
+        { id: 'universe', label: '🎯 Chọn danh mục' },
+        { id: 'backtest', label: '📈 Backtest' },
+        { id: 'health', label: '⚙️ Hệ thống' },
+        { id: 'reports', label: '📄 Báo cáo' },
+    ];
+    return (
+        <div className="flex overflow-x-auto border-b border-gray-200 bg-white">
+            {tabs.map(t => (
+                <button key={t.id}
+                    className={`px-4 py-3 text-sm whitespace-nowrap ${active === t.id ? 'tab-active' : 'text-gray-600 hover:text-gray-900'}`}
+                    onClick={() => onChange(t.id)}>
+                    {t.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+// ─── Ranking Page ────────────────────────────────────────
+function RankingPage({ onSelectStock }) {
+    const [ranking, setRanking] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
+    const [jobId, setJobId] = useState(null);
+
+    const fetchRanking = useCallback(async () => {
+        setLoading(true);
+        try { setRanking(await api('/ranking')); } catch(e) {}
+        setLoading(false);
+    }, []);
+
+    useEffect(() => { fetchRanking(); }, []);
+
+    const runAnalysis = async () => {
+        setAnalyzing(true);
+        try {
+            const res = await api('/analysis/run', { method: 'POST' });
+            setJobId(res.job_id);
+            // Poll for completion
+            const poll = setInterval(async () => {
+                const job = await api(`/jobs/${res.job_id}`);
+                if (job.status === 'completed' || job.status === 'failed') {
+                    clearInterval(poll);
+                    setAnalyzing(false);
+                    if (job.status === 'completed') fetchRanking();
+                    else alert('Phân tích thất bại: ' + (job.error || 'Unknown'));
+                }
+            }, 3000);
+        } catch(e) { setAnalyzing(false); alert('Lỗi: ' + e.message); }
+    };
+
+    const exportPDF = async () => {
+        try {
+            const res = await api('/reports/summary', { method: 'POST' });
+            alert('PDF đang được tạo! ID: ' + res.report_id);
+            // Poll and download
+            const poll = setInterval(async () => {
+                const job = await api(`/jobs/${res.report_id}`);
+                if (job.status === 'completed') {
+                    clearInterval(poll);
+                    window.open(`${API}/reports/${res.report_id}/download`, '_blank');
+                }
+            }, 2000);
+        } catch(e) { alert('Lỗi: ' + e.message); }
+    };
+
+    const radarData = ranking?.main_ranking?.map(r => ({
+        symbol: r.symbol,
+        FA: r.fa_score || 0,
+        TA: r.ta_score || 0,
+        NEWS: r.news_score || 0,
+    })) || [];
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-wrap gap-3">
+                <button onClick={runAnalysis} disabled={analyzing}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">
+                    {analyzing ? '⏳ Đang phân tích...' : '🚀 Chạy phân tích'}
+                </button>
+                <button onClick={fetchRanking} className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm">
+                    🔄 Tải lại
+                </button>
+                <button onClick={exportPDF} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">
+                    📄 Xuất PDF tổng hợp
+                </button>
+            </div>
+
+            {ranking && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="card p-4 text-center">
+                        <div className="text-2xl font-bold text-blue-600">{ranking.main_ranking?.length || 0}</div>
+                        <div className="text-sm text-gray-500">Mã đủ điều kiện</div>
+                    </div>
+                    <div className="card p-4 text-center">
+                        <div className="text-2xl font-bold text-amber-600">{ranking.secondary_ranking?.length || 0}</div>
+                        <div className="text-sm text-gray-500">Mã thiếu dữ liệu</div>
+                    </div>
+                    <div className="card p-4 text-center">
+                        <div className="text-xs text-gray-400">Phiên bản</div>
+                        <div className="text-sm font-mono">{ranking.scoring_version}</div>
+                    </div>
+                </div>
+            )}
+
+            {loading ? <LoadingSpinner /> : ranking && (
+                <>
+                    <div className="card overflow-x-auto">
+                        <div className="p-4 border-b"><h2 className="text-lg font-bold text-gray-800">🏆 Bảng xếp hạng chính</h2></div>
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left">Hạng</th>
+                                    <th className="px-4 py-3 text-left">Mã</th>
+                                    <th className="px-4 py-3 text-left">Ngành</th>
+                                    <th className="px-4 py-3 text-center">FA</th>
+                                    <th className="px-4 py-3 text-center">TA</th>
+                                    <th className="px-4 py-3 text-center">NEWS</th>
+                                    <th className="px-4 py-3 text-center">Tổng (S)</th>
+                                    <th className="px-4 py-3 text-center">Trạng thái</th>
+                                    <th className="px-4 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {ranking.main_ranking?.map((r, i) => (
+                                    <tr key={r.symbol} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                        <td className="px-4 py-3 font-bold text-blue-600">{r.rank}</td>
+                                        <td className="px-4 py-3 font-mono font-bold">{r.symbol}</td>
+                                        <td className="px-4 py-3 text-gray-600">{r.sector}</td>
+                                        <td className="px-4 py-3 text-center">{r.fa_score?.toFixed(1) || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-center">{r.ta_score?.toFixed(1) || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-center">{r.news_score?.toFixed(1) || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-center font-bold text-lg">{r.total_score?.toFixed(1) || 'N/A'}</td>
+                                        <td className="px-4 py-3 text-center"><StatusBadge status={r.status} /></td>
+                                        <td className="px-4 py-3">
+                                            <button onClick={() => onSelectStock(r.symbol)} className="text-blue-600 hover:underline text-xs">Chi tiết →</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {(!ranking.main_ranking || ranking.main_ranking.length === 0) && (
+                                    <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-400">Chưa có dữ liệu. Nhấn "Chạy phân tích" để bắt đầu.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {ranking.secondary_ranking?.length > 0 && (
+                        <div className="card overflow-x-auto">
+                            <div className="p-4 border-b"><h2 className="text-lg font-bold text-amber-700">⚠️ Mã chưa đủ dữ liệu</h2></div>
+                            <table className="w-full text-sm">
+                                <thead className="bg-amber-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left">Mã</th>
+                                        <th className="px-4 py-3 text-left">Ngành</th>
+                                        <th className="px-4 py-3 text-center">FA</th>
+                                        <th className="px-4 py-3 text-center">TA</th>
+                                        <th className="px-4 py-3 text-center">Trạng thái</th>
+                                        <th className="px-4 py-3 text-left">Lý do</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {ranking.secondary_ranking.map((r, i) => (
+                                        <tr key={r.symbol} className={i % 2 === 0 ? 'bg-white' : 'bg-amber-50'}>
+                                            <td className="px-4 py-3 font-mono">{r.symbol}</td>
+                                            <td className="px-4 py-3">{r.sector}</td>
+                                            <td className="px-4 py-3 text-center">{r.fa_score?.toFixed(1) || '-'}</td>
+                                            <td className="px-4 py-3 text-center">{r.ta_score?.toFixed(1) || '-'}</td>
+                                            <td className="px-4 py-3 text-center"><StatusBadge status={r.status} /></td>
+                                            <td className="px-4 py-3 text-xs text-gray-500">{r.reasons?.join('; ')?.substring(0, 100)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {radarData.length > 0 && (
+                        <div className="card p-4">
+                            <h3 className="text-lg font-bold mb-4">📊 So sánh điểm FA / TA / NEWS</h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={radarData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="symbol" />
+                                    <YAxis domain={[0, 100]} />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar dataKey="FA" fill="#3182ce" name="FA (45%)" />
+                                    <Bar dataKey="TA" fill="#38a169" name="TA (35%)" />
+                                    <Bar dataKey="NEWS" fill="#d69e2e" name="NEWS (20%)" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
+// ─── Stock Detail Page ───────────────────────────────────
+function StockDetailPage({ symbol, onBack }) {
+    const [detail, setDetail] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!symbol) return;
+        setLoading(true);
+        api(`/stocks/${symbol}`).then(setDetail).catch(() => {}).finally(() => setLoading(false));
+    }, [symbol]);
+
+    if (!symbol) return <div className="text-center p-8 text-gray-400">Chọn mã từ bảng xếp hạng</div>;
+    if (loading) return <LoadingSpinner />;
+    if (!detail) return <div className="text-center p-8 text-red-500">Không tìm thấy dữ liệu cho {symbol}</div>;
+
+    const exportPDF = async () => {
+        try {
+            const res = await api(`/reports/stock/${symbol}`, { method: 'POST' });
+            alert(`PDF cho ${symbol} đang tạo! ID: ${res.report_id}`);
+            const poll = setInterval(async () => {
+                const job = await api(`/jobs/${res.report_id}`);
+                if (job.status === 'completed') { clearInterval(poll); window.open(`${API}/reports/${res.report_id}/download`, '_blank'); }
+            }, 2000);
+        } catch(e) { alert('Lỗi: ' + e.message); }
+    };
+
+    const priceData = detail.prices?.slice(-60)?.map(p => ({
+        date: p.time?.substring(0, 10) || '',
+        close: p.close,
+        volume: p.volume,
+    })) || [];
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-4">
+                <button onClick={onBack} className="text-blue-600 hover:underline">← Quay lại</button>
+                <h2 className="text-2xl font-bold">{symbol}</h2>
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{detail.sector}</span>
+                <button onClick={exportPDF} className="ml-auto bg-green-600 text-white px-4 py-2 rounded-lg text-sm">📄 Xuất PDF</button>
+            </div>
+
+            {priceData.length > 0 && (
+                <div className="card p-4">
+                    <h3 className="font-bold mb-2">📈 Biểu đồ giá (60 phiên gần nhất)</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={priceData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" tick={{fontSize: 10}} />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="close" stroke="#3182ce" strokeWidth={2} dot={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="card p-4">
+                    <h3 className="font-bold mb-3">🎯 Breakdown điểm TA</h3>
+                    {detail.indicators && Object.entries(detail.indicators).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
+                        typeof v === 'object' && v !== null ? (
+                        <div key={k} className="flex justify-between py-1 border-b text-sm">
+                            <span className="text-gray-600">{k}</span>
+                            <div>
+                                <span className="text-gray-400 mr-2">raw: {v.raw?.toFixed(4) || 'N/A'}</span>
+                                <span className="font-bold">{v.score?.toFixed(1) || 'N/A'}</span>
+                            </div>
+                        </div>
+                        ) : null
+                    ))}
+                </div>
+                <div className="card p-4">
+                    <h3 className="font-bold mb-3">📊 Breakdown điểm FA</h3>
+                    {detail.fundamentals && Object.entries(detail.fundamentals).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
+                        typeof v === 'object' && v !== null ? (
+                        <div key={k} className="flex justify-between py-1 border-b text-sm">
+                            <span className="text-gray-600">{k}</span>
+                            <div>
+                                <span className="text-gray-400 mr-2">raw: {v.raw?.toFixed(4) || 'N/A'}</span>
+                                <span className="font-bold">{v.score?.toFixed(1) || 'N/A'}</span>
+                            </div>
+                        </div>
+                        ) : null
+                    ))}
+                </div>
+            </div>
+
+            {detail.news?.length > 0 && (
+                <div className="card p-4">
+                    <h3 className="font-bold mb-3">📰 Tin tức gần đây</h3>
+                    {detail.news.slice(0, 10).map((n, i) => (
+                        <div key={i} className="py-2 border-b text-sm">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${n.direction === 'positive' ? 'bg-green-100 text-green-700' : n.direction === 'negative' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                                {n.direction || 'neutral'}
+                            </span>
+                            <span>{n.title?.substring(0, 100)}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Universe Page ───────────────────────────────────────
+function UniversePage() {
+    const [universe, setUniverse] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        api('/universe').then(setUniverse).catch(() => {}).finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <LoadingSpinner />;
+
+    return (
+        <div className="space-y-4">
+            <div className="card p-4">
+                <h2 className="text-lg font-bold mb-3">🎯 Danh sách VN30 và mã đã chọn</h2>
+                <p className="text-sm text-gray-500 mb-4">Ngày: {universe?.date}</p>
+
+                <h3 className="font-bold mb-2">Mã đã chọn phân tích:</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                    {universe?.selected?.map(s => (
+                        <div key={s.symbol} className="bg-blue-50 p-3 rounded-lg">
+                            <span className="font-mono font-bold text-blue-700">{s.symbol}</span>
+                            <span className="text-sm text-gray-500 ml-2">({s.sector})</span>
+                        </div>
+                    ))}
+                </div>
+
+                <h3 className="font-bold mb-2">Thành phần VN30 hiện tại:</h3>
+                <div className="flex flex-wrap gap-2">
+                    {universe?.vn30_members?.map(s => (
+                        <span key={s} className={`px-2 py-1 rounded text-xs font-mono ${universe.selected?.some(sel => sel.symbol === s) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            {s}
+                        </span>
+                    ))}
+                </div>
+
+                {universe?.warnings?.length > 0 && (
+                    <div className="mt-4 bg-amber-50 p-3 rounded text-sm text-amber-700">
+                        {universe.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Backtest Page ───────────────────────────────────────
+function BacktestPage() {
+    const [result, setResult] = useState(null);
+    const [running, setRunning] = useState(false);
+
+    const runBacktest = async () => {
+        setRunning(true);
+        try {
+            const res = await api('/backtest/run', { method: 'POST', body: JSON.stringify({ mode: 'S_ex_news', top_n: 3 }) });
+            const poll = setInterval(async () => {
+                const job = await api(`/backtest/${res.job_id}`);
+                if (job.status === 'completed' || job.status === 'failed') {
+                    clearInterval(poll);
+                    setRunning(false);
+                    setResult(job.result || job);
+                }
+            }, 5000);
+        } catch(e) { setRunning(false); alert('Lỗi: ' + e.message); }
+    };
+
+    return (
+        <div className="space-y-4">
+            <button onClick={runBacktest} disabled={running} className="bg-purple-600 text-white px-4 py-2 rounded-lg disabled:opacity-50">
+                {running ? '⏳ Đang chạy backtest...' : '🧪 Chạy Backtest'}
+            </button>
+
+            {result && (
+                <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(result.metrics || {}).map(([k, v]) => (
+                            <div key={k} className="card p-3 text-center">
+                                <div className="text-xs text-gray-500">{k}</div>
+                                <div className="text-lg font-bold">{typeof v === 'number' ? v.toLocaleString() : v}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {result.equity_curve?.length > 0 && (
+                        <div className="card p-4">
+                            <h3 className="font-bold mb-2">💰 Đường vốn</h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={result.equity_curve}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" tick={{fontSize: 9}} />
+                                    <YAxis />
+                                    <Tooltip formatter={v => v.toLocaleString() + ' VND'} />
+                                    <Line type="monotone" dataKey="value" stroke="#6b46c1" strokeWidth={2} dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
+                    {result.limitations?.length > 0 && (
+                        <div className="card p-4 bg-amber-50">
+                            <h3 className="font-bold text-amber-700 mb-2">⚠️ Hạn chế</h3>
+                            <ul className="text-sm text-amber-600 list-disc pl-5">
+                                {result.limitations.map((l, i) => <li key={i}>{l}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
+// ─── Health Page ─────────────────────────────────────────
+function HealthPage() {
+    const [health, setHealth] = useState(null);
+    const [quality, setQuality] = useState(null);
+
+    useEffect(() => {
+        api('/health').then(setHealth).catch(() => {});
+        api('/data/quality').then(setQuality).catch(() => {});
+    }, []);
+
+    return (
+        <div className="space-y-4">
+            <div className="card p-4">
+                <h2 className="text-lg font-bold mb-3">⚙️ Trạng thái hệ thống</h2>
+                {health && (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><span className="text-gray-500">Status:</span> <span className="font-bold text-green-600">{health.status}</span></div>
+                        <div><span className="text-gray-500">Scoring:</span> <span className="font-mono">{health.scoring_version}</span></div>
+                        <div><span className="text-gray-500">Config hash:</span> <span className="font-mono text-xs">{health.config_hash?.substring(0, 16)}...</span></div>
+                        <div><span className="text-gray-500">Thời gian:</span> <span>{new Date(health.timestamp).toLocaleString('vi-VN')}</span></div>
+                    </div>
+                )}
+            </div>
+            <div className="card p-4">
+                <h2 className="text-lg font-bold mb-3">📋 Chất lượng dữ liệu</h2>
+                {quality?.checks ? (
+                    <div className="space-y-2">
+                        {quality.checks.map((c, i) => (
+                            <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded text-sm">
+                                <span className={`w-3 h-3 rounded-full ${c.status === 'OK' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span className="font-mono">{c.name}</span>
+                                <span className="text-gray-400">{c.kind}</span>
+                                <span className={c.status === 'OK' ? 'text-green-600' : 'text-red-600'}>{c.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu kiểm tra</p>}
+            </div>
+        </div>
+    );
+}
+
+// ─── Reports Page ────────────────────────────────────────
+function ReportsPage() {
+    const [reports, setReports] = useState([]);
+    useEffect(() => { api('/reports').then(r => setReports(r.reports || [])).catch(() => {}); }, []);
+
+    return (
+        <div className="card p-4">
+            <h2 className="text-lg font-bold mb-3">📄 Lịch sử báo cáo</h2>
+            {reports.length === 0 ? (
+                <p className="text-gray-400 text-sm">Chưa có báo cáo. Chạy phân tích và xuất PDF từ trang Xếp hạng.</p>
+            ) : (
+                <div className="space-y-2">
+                    {reports.map(r => (
+                        <div key={r.report_id} className="flex items-center gap-4 p-3 bg-gray-50 rounded">
+                            <span className="font-mono text-xs">{r.report_id.substring(0, 8)}</span>
+                            <span>{r.kind}</span>
+                            <StatusBadge status={r.status} />
+                            {r.status === 'completed' && (
+                                <a href={`${API}/reports/${r.report_id}/download`} target="_blank" className="text-blue-600 hover:underline text-sm ml-auto">Tải xuống</a>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Main App ────────────────────────────────────────────
+function App() {
+    const [tab, setTab] = useState('ranking');
+    const [selectedStock, setSelectedStock] = useState(null);
+
+    const handleSelectStock = (symbol) => {
+        setSelectedStock(symbol);
+        setTab('detail');
+    };
+
+    return (
+        <div className="min-h-screen">
+            <header className="gradient-bg text-white p-4 shadow-lg">
+                <div className="max-w-7xl mx-auto">
+                    <h1 className="text-xl font-bold">📊 Hệ thống Phân tích Cơ hội Đầu tư Cổ phiếu VN30</h1>
+                    <p className="text-blue-200 text-sm">S = 0.45×FA + 0.35×TA + 0.20×NEWS</p>
+                </div>
+            </header>
+
+            <div className="max-w-7xl mx-auto">
+                <Tabs active={tab} onChange={setTab} />
+                <div className="p-4">
+                    <Disclaimer />
+                    {tab === 'ranking' && <RankingPage onSelectStock={handleSelectStock} />}
+                    {tab === 'detail' && <StockDetailPage symbol={selectedStock} onBack={() => setTab('ranking')} />}
+                    {tab === 'universe' && <UniversePage />}
+                    {tab === 'backtest' && <BacktestPage />}
+                    {tab === 'health' && <HealthPage />}
+                    {tab === 'reports' && <ReportsPage />}
+                </div>
+            </div>
+
+            <footer className="text-center text-xs text-gray-400 p-4 border-t mt-8">
+                VN30 Investment Analysis System v1.0 | Công cụ hỗ trợ phân tích, không phải khuyến nghị đầu tư
+            </footer>
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

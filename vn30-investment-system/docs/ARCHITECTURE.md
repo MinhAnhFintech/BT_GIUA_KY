@@ -19,8 +19,9 @@ flowchart LR
     Artifacts --> API
 ```
 
-Hiện đã có config, hợp đồng provider, source-health và schema. Các khối API/UI/job/
-analysis/PDF/backtest trong sơ đồ là thiết kế cho giai đoạn tiếp theo, chưa chạy được.
+Hiện đã có config, provider KBS, source-health, schema, API, dashboard, job nền,
+cache/PIT, analysis và PDF. Backtest gồm simulator kiểm thử và kiểm tra prerequisites;
+chưa có historical score replay/benchmark/walk-forward, nên trả UNAVAILABLE.
 Chọn SQLite/SQLAlchemy vì chỉ 5–10 mã và dễ đối soát; React/FastAPI tách biệt để
 test API độc lập. Chỉ báo sẽ tự cài bằng pandas/numpy để tránh phụ thuộc TA không
 ổn định; phải so với fixture tham chiếu trước khi dùng.
@@ -54,7 +55,7 @@ vintage nhất quán trước analysis; unique key không thay thế logic incre
 BCTC đã phân biệt quarter/year và revision. Trước giai đoạn 2 cần Alembic migration
 đầu tiên; hiện `create_all` chỉ dùng bootstrap DB mới, không tự nâng schema DB cũ.
 
-## Hợp đồng API dự kiến ở giai đoạn 4
+## Hợp đồng API hiện tại
 
 | Method | Route | Kết quả / điều kiện |
 |---|---|---|

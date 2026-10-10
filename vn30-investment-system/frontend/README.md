@@ -10,7 +10,8 @@ Khởi động backend tại http://127.0.0.1:8000, sau đó chạy trong thư m
     npm run dev
 
 Mở http://127.0.0.1:5173. Vite chuyển tiếp /api tới backend.
-Nhấn Chạy phân tích để tải và tính điểm; hệ thống theo dõi tác vụ nền tự động.
+Nhấn Cập nhật dữ liệu để tải vào SQLite, chờ hoàn thành rồi Chạy phân tích.
+Phân tích chỉ đọc cache; hệ thống theo dõi tác vụ nền tự động.
 Kiểm tra bản phát hành: npm run build. Kết quả nằm trong dist/.
 Backend có thể phục vụ dist/ để sử dụng giao diện sau khi build.
 

@@ -62,3 +62,61 @@ def test_vietnamese_pdf():
         assert path.stat().st_size > 10_000
     finally:
         path.unlink()
+
+
+def test_service_payload_pdf_has_charts_without_raw_price_dump(monkeypatch):
+    from reportlab.graphics.shapes import Drawing
+    from reportlab.platypus import Paragraph, SimpleDocTemplate
+
+    observed = []
+    original = SimpleDocTemplate.build
+
+    def inspect_build(self, flowables, *args, **kwargs):
+        observed.extend(flowables)
+        return original(self, flowables, *args, **kwargs)
+
+    monkeypatch.setattr(SimpleDocTemplate, "build", inspect_build)
+    payload = {
+        "as_of_date": "2026-01-01",
+        "scoring_version": "test-1",
+        "stocks": [
+            {
+                "symbol": "FPT",
+                "sector": "technology",
+                "status": "COMPLETE",
+                "breakdown": {
+                    "FA": {
+                        "score": 70,
+                        "weight": 0.45,
+                        "detail": {
+                            "roe": {
+                                "raw": 0.2,
+                                "score": 70,
+                                "weight": 1,
+                                "weighted_contribution": 70,
+                            }
+                        },
+                    }
+                },
+                "prices": [
+                    {
+                        "time": str(i),
+                        "close": 100 + i,
+                        "ma20": 90 + i,
+                        "raw_marker": "SHOULD_NOT_DUMP_RAW",
+                    }
+                    for i in range(1000)
+                ],
+                "provenance": {"price_ids": list(range(1000))},
+            }
+        ],
+    }
+    path = create_report(payload)
+    try:
+        text = " ".join(item.text for item in observed if isinstance(item, Paragraph))
+        assert "SHOULD_NOT_DUMP_RAW" not in text
+        assert "1000 bản ghi" in text
+        assert sum(isinstance(item, Drawing) for item in observed) == 2
+        assert path.stat().st_size < 100_000
+    finally:
+        path.unlink()

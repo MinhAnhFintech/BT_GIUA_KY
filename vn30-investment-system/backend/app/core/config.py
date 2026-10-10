@@ -48,8 +48,8 @@ class UniverseConfig(BaseModel):
     version: str = Field(min_length=1)
     index: Literal["VN30"]
     timezone: str
-    min_symbols: int = Field(ge=5, le=10)
-    max_symbols: int = Field(ge=5, le=10)
+    min_symbols: int = Field(ge=5, le=30)
+    max_symbols: int = Field(ge=5, le=30)
     historical_membership_policy: Literal["require_dated_snapshot"]
     selected: list[SelectedStock]
 
@@ -132,8 +132,37 @@ class Settings(BaseModel):
             value = self.backtest[key]
             if not math.isfinite(value) or not 0 <= value < 1:
                 raise ValueError(f"{key}: finite fraction in [0, 1) required")
-        if self.backtest["lot_size"] <= 0 or self.backtest["settlement_sessions"] < 0:
+        if self.backtest["sell_fee"] + self.backtest["sell_tax"] >= 1:
+            raise ValueError("Combined sale fee and tax must be less than 1")
+        if (
+            not math.isfinite(self.backtest["initial_cash_vnd"])
+            or self.backtest["initial_cash_vnd"] <= 0
+        ):
+            raise ValueError("Initial cash must be finite and positive")
+        if not isinstance(self.backtest["lot_size"], int) or self.backtest["lot_size"] <= 0:
+            raise ValueError("Lot size must be a positive integer")
+        if (
+            not isinstance(self.backtest["settlement_sessions"], int)
+            or self.backtest["settlement_sessions"] < 0
+        ):
             raise ValueError("Invalid lot size or settlement period")
+        if self.backtest["rebalance"] not in {"monthly", "quarterly"}:
+            raise ValueError("Invalid rebalance frequency")
+        if self.backtest["execution"] != "next_session_open":
+            raise ValueError("Only next-session open execution is supported")
+        if (
+            not isinstance(self.backtest["annual_sessions"], int)
+            or self.backtest["annual_sessions"] <= 0
+        ):
+            raise ValueError("Annual sessions must be a positive integer")
+        risk_free = self.backtest["risk_free_annual"]
+        if not math.isfinite(risk_free) or risk_free <= -1:
+            raise ValueError("Risk-free annual rate must be finite and greater than -1")
+        participation = self.backtest["max_volume_participation"]
+        if not math.isfinite(participation) or not 0 < participation <= 1:
+            raise ValueError("Invalid volume participation")
+        if not 0 < self.backtest["out_of_sample_fraction"] < 1:
+            raise ValueError("Out-of-sample fraction must be in (0, 1)")
         return self
 
 
